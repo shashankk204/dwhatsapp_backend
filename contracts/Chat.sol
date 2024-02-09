@@ -2,16 +2,14 @@
 pragma solidity 0.8.20;
 
 
-// import "hardhat/console.sol";
 
 
 contract chat
 {
-    // struct Friend
-    // {
-    //     string FriendName;
-    //     address FriendPUBkey;
-    // }
+    enum MessageType {
+        text,photo,video
+    }
+
     struct User 
     {
         string UserName;
@@ -23,11 +21,18 @@ contract chat
         string Text;
         address sender;
         address receiver;
+        MessageType TypeOFMessage;
     }
-    mapping (bytes32=>bool) internal NameTaken;
-    mapping (address=>User) internal ActiveUsers;
-    mapping (bytes32=>Message[]) internal Allchat; 
+
+
+    mapping (bytes32=>bool) private  NameTaken;
+    mapping (address=>User) private  ActiveUsers;
+    mapping (bytes32=>Message[]) private  Allchat;
     
+    
+    event NewMessage(address indexed sender,address indexed receiver);
+
+
     function CheckUser(address _UserPUBKey) public view returns(bool)
     {
         if(ActiveUsers[_UserPUBKey].UserPUBKey==0x0000000000000000000000000000000000000000)
@@ -40,62 +45,37 @@ contract chat
         }
     }
 
+    
+    
     function CreateNewUser(string calldata _UserName) external 
     {
-        // if(CheckUser(msg.sender)==true)
-        // {
-        //     console.log("user already exists");
-        //     revert();
-        // }
-        // if(NameTaken[keccak256(abi.encodePacked(_UserName))]==true)
-        // {
-        //     console.log("name Already taken");
-        //     revert();
-        // }
+        
         require(CheckUser(msg.sender)==false,"user already exists");
         require(NameTaken[keccak256(abi.encodePacked(_UserName))]==false,"name Already taken");
         
+
+
         ActiveUsers[msg.sender].UserPUBKey=msg.sender;
         ActiveUsers[msg.sender].UserName=_UserName;
         NameTaken[keccak256(abi.encodePacked(_UserName))]=true;
 
 
     }
+    
     function Addfriend(address _NewFriendPUBKey) external 
     {
-        // if(CheckUser(msg.sender)==false || CheckUser(_NewFriendPUBKey)==false)
-        // {
-        //     console.log("No user found");
-        //     revert();
-        // }
-        // if(_NewFriendPUBKey==msg.sender)
-        // {
-        //     console.log("can't be friend to self");
-        //     revert();
-        // }
+        
         require(CheckUser(msg.sender)==true && CheckUser(_NewFriendPUBKey)==true,"No user found");
         require(_NewFriendPUBKey!=msg.sender,"can't be friend to self");
-
-        // for(uint i=0;i<ActiveUsers[msg.sender].FriendList.length;i++)
-        // {
-        //     if(ActiveUsers[msg.sender].FriendList[i]==_NewFriendPUBKey)
-        //     {
-        //         console.log("already a friend");
-        //         revert();
-        //     }
-        // }
-        // if(CheckFriend(_NewFriendPUBKey)==true)
-        // {
-        //     console.log("already a friend");
-        //     revert();
-        // }
         require(CheckFriend(_NewFriendPUBKey)==false,"already a friend");
+
+
 
         ActiveUsers[msg.sender].FriendList.push(_NewFriendPUBKey);
         ActiveUsers[_NewFriendPUBKey].FriendList.push(msg.sender);
     }
 
-    function CheckFriend(address _Isfriend) internal view returns(bool) 
+    function CheckFriend(address _Isfriend) private view returns(bool) 
     {
         
         for(uint i=0;i<ActiveUsers[msg.sender].FriendList.length;i++)
@@ -109,29 +89,24 @@ contract chat
         return false;
     }
 
+
     function allfriend() external view  returns(address[] memory)
     {
         return ActiveUsers[msg.sender].FriendList;
     }
     
 
-    function SendMessage(string calldata _Message,address _Friend) external 
+    function SendMessage(string calldata _Message,address _Friend,MessageType _type) external 
     {
-        // if(CheckUser(msg.sender)==false || CheckUser(_Friend)==false)
-        // {
-        //     console.log("No accound found");
-        // }
-        // if(CheckFriend(_Friend)==false)
-        // {
-        //     console.log("add to friend Fisrt");
-        //     revert();
-        // }
         require(CheckUser(msg.sender)==true && CheckUser(_Friend)==true,"No accound found");
         require(CheckFriend(_Friend)==true,"add to friend Fisrt");
-        Allchat[KeyHash(msg.sender,_Friend)].push(Message(_Message,msg.sender,_Friend));
+        
+        
+        Allchat[KeyHash(msg.sender,_Friend)].push(Message(_Message,msg.sender,_Friend,_type));
+        emit NewMessage(msg.sender, _Friend);
     }
 
-    function KeyHash(address key1,address key2) internal pure returns(bytes32)
+    function KeyHash(address key1,address key2) private pure returns(bytes32)
     {
         if(key1>key2)
         {
@@ -143,22 +118,20 @@ contract chat
         }
 
     }
-    function GetMessage(address _FriendPUBKey) public view returns(Message[] memory) 
+    function GetMessage(address _FriendPUBKey) public view  returns(Message[] memory) 
     {
-        // if(CheckUser(msg.sender)==false || CheckUser(_FriendPUBKey)==false)
-        // {
-        //     console.log("No accound found");
-        //     revert();
-        // }
-        // if(CheckFriend(_FriendPUBKey)==false)
-        // {
-        //     console.log("add to friend Fisrt");
-        //     revert();
-        // }
         require(CheckUser(msg.sender)==true && CheckUser(_FriendPUBKey)==true,"No accound found");
         require(CheckFriend(_FriendPUBKey)==true,"add to friend Fisrt");
 
         return Allchat[KeyHash(msg.sender,_FriendPUBKey)];
     }
+    function GetUserName(address _User) view public returns(string memory)
+    {
+        require(CheckUser(_User),"No user Found");
+        
+        
+        return  ActiveUsers[_User].UserName;
+    }
+    
 }
 
